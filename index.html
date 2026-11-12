@@ -185,10 +185,13 @@
                         </label>
                         <div class="flex items-center gap-2 flex-wrap">
                             <span id="user-calc-prefix" class="font-mono font-bold text-slate-700 text-sm">500 × 0.3 =</span>
-                            <input type="number" id="user-answer-input" placeholder="答えを入力" class="w-28 p-2 text-center border-2 border-slate-300 rounded-xl font-bold focus:border-amber-500 focus:outline-none">
+                            <input type="number" id="user-answer-input" step="any" placeholder="答えを入力" class="w-28 p-2 text-center border-2 border-slate-300 rounded-xl font-bold focus:border-amber-500 focus:outline-none">
                             <span class="font-bold text-slate-600 text-sm">ml</span>
                             <button onclick="checkUserAnswer()" class="bg-amber-500 hover:bg-amber-600 active:scale-95 text-white font-bold px-4 py-2 rounded-xl text-sm transition">
                                 答え合わせ
+                            </button>
+                            <button onclick="revealAnswer()" class="bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-600 font-bold px-3 py-2 rounded-xl text-xs transition">
+                                答えを見る
                             </button>
                         </div>
                         <div id="user-answer-feedback" class="mt-2 text-xs font-bold hidden"></div>
@@ -205,10 +208,10 @@
                 <div class="bg-amber-500 text-white p-6 rounded-3xl shadow-md text-center relative overflow-hidden">
                     <div class="text-amber-100 text-sm font-bold mb-1">計算された果汁含有量</div>
                     <div class="text-4xl md:text-5xl font-black tracking-tight my-2 font-mono" id="result-volume">
-                        150 <span class="text-2xl font-bold">ml</span>
+                        ？ <span class="text-2xl font-bold">ml</span>
                     </div>
                     <div class="text-xs bg-amber-600/60 inline-block px-3 py-1 rounded-full text-amber-100 font-medium" id="result-breakdown">
-                        全体の 30% （水分: 350 ml）
+                        全体の 30% （答え合わせで詳細表示）
                     </div>
                 </div>
 
@@ -237,11 +240,11 @@
                     <div class="flex items-center gap-4 mt-4 text-xs font-bold">
                         <div class="flex items-center gap-1.5">
                             <span id="legend-juice-color" class="w-3.5 h-3.5 rounded-full bg-orange-400 inline-block"></span>
-                            <span class="text-slate-700">果汁: <span id="legend-juice-val" class="font-mono">150</span>ml</span>
+                            <span class="text-slate-700">果汁: <span id="legend-juice-val" class="font-mono">？</span>ml</span>
                         </div>
                         <div class="flex items-center gap-1.5">
                             <span class="w-3.5 h-3.5 rounded-full bg-blue-200 inline-block"></span>
-                            <span class="text-slate-500">水など: <span id="legend-water-val" class="font-mono">350</span>ml</span>
+                            <span class="text-slate-500">水など: <span id="legend-water-val" class="font-mono">？</span>ml</span>
                         </div>
                     </div>
                 </div>
@@ -282,11 +285,11 @@
 
                     <label class="block text-xs font-bold text-slate-500 pt-2">【ステップ2】果汁量を求める計算式と答えをつくろう</label>
                     <div class="flex items-center gap-2 flex-wrap font-bold text-slate-700">
-                        <input type="number" id="drill-vol-input" placeholder="全体量" class="w-28 p-2.5 border-2 border-slate-300 rounded-xl text-center focus:border-amber-500 focus:outline-none">
+                        <input type="number" id="drill-vol-input" step="any" placeholder="全体量" class="w-28 p-2.5 border-2 border-slate-300 rounded-xl text-center focus:border-amber-500 focus:outline-none">
                         <span>×</span>
-                        <input type="number" id="drill-mult-input" step="0.01" placeholder="倍率(小数)" class="w-28 p-2.5 border-2 border-slate-300 rounded-xl text-center focus:border-amber-500 focus:outline-none">
+                        <input type="number" id="drill-mult-input" step="any" placeholder="倍率(小数)" class="w-28 p-2.5 border-2 border-slate-300 rounded-xl text-center focus:border-amber-500 focus:outline-none">
                         <span>＝</span>
-                        <input type="number" id="drill-ans-input" placeholder="果汁量(ml)" class="w-32 p-2.5 border-2 border-amber-400 rounded-xl text-center font-black focus:border-amber-500 focus:outline-none">
+                        <input type="number" id="drill-ans-input" step="any" placeholder="果汁量(ml)" class="w-32 p-2.5 border-2 border-amber-400 rounded-xl text-center font-black focus:border-amber-500 focus:outline-none">
                         <span>ml</span>
                     </div>
                 </div>
@@ -419,6 +422,35 @@
             updateCalculation();
         }
 
+        // ==================== 正確な小数計算ヘルパー（四捨五入なし） ====================
+        function exactMultiply(a, b) {
+            const strA = a.toString();
+            const strB = b.toString();
+            const decA = (strA.split('.')[1] || '').length;
+            const decB = (strB.split('.')[1] || '').length;
+            const intA = Number(strA.replace('.', ''));
+            const intB = Number(strB.replace('.', ''));
+            return (intA * intB) / Math.pow(10, decA + decB);
+        }
+
+        function exactDivideRatio(val, unit) {
+            const str = val.toString();
+            const dec = (str.split('.')[1] || '').length;
+            const intVal = Number(str.replace('.', ''));
+            const extraDec = unit === 'percent' ? 2 : 1;
+            return intVal / Math.pow(10, dec + extraDec);
+        }
+
+        function exactSubtract(a, b) {
+            const strA = a.toString();
+            const strB = b.toString();
+            const decA = (strA.split('.')[1] || '').length;
+            const decB = (strB.split('.')[1] || '').length;
+            const maxDec = Math.max(decA, decB);
+            const factor = Math.pow(10, maxDec);
+            return (Math.round(a * factor) - Math.round(b * factor)) / factor;
+        }
+
         // ==================== 計算＆立式プロセスの更新 ====================
         function updateCalculation() {
             const vol = parseFloat(document.getElementById('volume-input').value) || 0;
@@ -426,47 +458,58 @@
             document.getElementById('volume-slider').value = Math.min(vol, 2000);
             document.getElementById('ratio-slider').value = ratioVal;
 
-            // 1. 倍率（小数）の計算
-            let decimalRatio = 0;
+            // 1. 倍率（小数）の計算（四捨五入なし）
+            const decimalRatio = exactDivideRatio(ratioVal, currentUnit);
             let step1Text = '';
             let step1Formula = '';
 
             if (currentUnit === 'percent') {
-                decimalRatio = ratioVal / 100;
                 step1Text = `「％」は 100 を全体(1)とする単位です。100 で割って小数にします。`;
-                step1Formula = `${ratioVal}％ ÷ 100 ＝ ${decimalRatio.toFixed(3).replace(/\.?0+$/, '')}`;
+                step1Formula = `${ratioVal}％ ÷ 100 ＝ ${decimalRatio}`;
             } else {
-                decimalRatio = ratioVal / 10;
                 step1Text = `「割」は 10 を全体(1)とする単位です。10 で割って小数にします。`;
-                step1Formula = `${ratioVal}割 ÷ 10 ＝ ${decimalRatio.toFixed(3).replace(/\.?0+$/, '')}`;
+                step1Formula = `${ratioVal}割 ÷ 10 ＝ ${decimalRatio}`;
             }
 
-            // 式と果汁量計算
-            const juiceVol = Math.round((vol * decimalRatio) * 10) / 10; // 小数第1位まで
-            const waterVol = Math.max(0, Math.round((vol - juiceVol) * 10) / 10);
-
-            // UI要素の更新
+            // UI要素の更新（答えは隠した状態にする）
             document.getElementById('step1-explain').innerText = step1Text;
             document.getElementById('step1-formula').innerText = step1Formula;
-            document.getElementById('step2-formula').innerText = `${vol} ml × ${decimalRatio.toFixed(3).replace(/\.?0+$/, '')} ＝ ${juiceVol} ml`;
-            document.getElementById('user-calc-prefix').innerText = `${vol} × ${decimalRatio.toFixed(3).replace(/\.?0+$/, '')} ＝`;
+            document.getElementById('step2-formula').innerText = `${vol} ml × ${decimalRatio} ＝ ？ ml`;
+            document.getElementById('user-calc-prefix').innerText = `${vol} × ${decimalRatio} ＝`;
 
-            // 結果表示
-            document.getElementById('result-volume').innerHTML = `${juiceVol} <span class="text-2xl font-bold">ml</span>`;
-            const percentVal = currentUnit === 'percent' ? ratioVal : ratioVal * 10;
-            document.getElementById('result-breakdown').innerText = `全体の ${percentVal}% （水分等: ${waterVol} ml）`;
+            // 結果表示（答えを隠す）
+            document.getElementById('result-volume').innerHTML = `？ <span class="text-2xl font-bold">ml</span>`;
+            const percentVal = currentUnit === 'percent' ? ratioVal : exactMultiply(ratioVal, 10);
+            document.getElementById('result-breakdown').innerText = `全体の ${percentVal}% （答え合わせで詳細表示）`;
 
-            // グラス描画の更新
-            const ratioPercentage = Math.min(100, Math.max(0, currentUnit === 'percent' ? ratioVal : ratioVal * 10));
+            // グラス描画の更新（割合の見た目のみ更新し、数値は隠す）
+            const ratioPercentage = Math.min(100, Math.max(0, percentVal));
             document.getElementById('glass-juice').style.height = `${ratioPercentage}%`;
             document.getElementById('glass-water').style.height = `${100 - ratioPercentage}%`;
             document.getElementById('glass-water').style.bottom = `${ratioPercentage}%`;
 
+            document.getElementById('legend-juice-val').innerText = '？';
+            document.getElementById('legend-water-val').innerText = '？';
+
+            // ユーザー手動入力欄とフィードバックのリセット
+            document.getElementById('user-answer-input').value = '';
+            document.getElementById('user-answer-feedback').classList.add('hidden');
+        }
+
+        // ==================== 答えを画面に表示する ====================
+        function revealAnswer() {
+            const vol = parseFloat(document.getElementById('volume-input').value) || 0;
+            const ratioVal = parseFloat(document.getElementById('ratio-input').value) || 0;
+            const decimalRatio = exactDivideRatio(ratioVal, currentUnit);
+            const juiceVol = exactMultiply(vol, decimalRatio);
+            const waterVol = Math.max(0, exactSubtract(vol, juiceVol));
+            const percentVal = currentUnit === 'percent' ? ratioVal : exactMultiply(ratioVal, 10);
+
+            document.getElementById('step2-formula').innerText = `${vol} ml × ${decimalRatio} ＝ ${juiceVol} ml`;
+            document.getElementById('result-volume').innerHTML = `${juiceVol} <span class="text-2xl font-bold">ml</span>`;
+            document.getElementById('result-breakdown').innerText = `全体の ${percentVal}% （水分等: ${waterVol} ml）`;
             document.getElementById('legend-juice-val').innerText = juiceVol;
             document.getElementById('legend-water-val').innerText = waterVol;
-
-            // ユーザー手動入力回答のリセット/フィードバック非表示
-            document.getElementById('user-answer-feedback').classList.add('hidden');
         }
 
         // ==================== ユーザーの手動計算の答え合わせ ====================
@@ -474,18 +517,19 @@
             const userAns = parseFloat(document.getElementById('user-answer-input').value);
             const vol = parseFloat(document.getElementById('volume-input').value) || 0;
             const ratioVal = parseFloat(document.getElementById('ratio-input').value) || 0;
-            const decimalRatio = currentUnit === 'percent' ? ratioVal / 100 : ratioVal / 10;
-            const correctAns = Math.round((vol * decimalRatio) * 10) / 10;
+            const decimalRatio = exactDivideRatio(ratioVal, currentUnit);
+            const correctAns = exactMultiply(vol, decimalRatio);
 
             const feedback = document.getElementById('user-answer-feedback');
             feedback.classList.remove('hidden');
 
-            if (!isNaN(userAns) && Math.abs(userAns - correctAns) < 0.1) {
+            if (!isNaN(userAns) && Math.abs(userAns - correctAns) < 1e-9) {
                 feedback.className = "mt-2 text-xs font-bold text-emerald-600 bg-emerald-50 p-2 rounded-xl border border-emerald-200";
-                feedback.innerHTML = `<i class="fa-solid fa-circle-check mr-1"></i> 正解！大正解です！ 式：${vol} × ${decimalRatio} = ${correctAns}ml`;
+                feedback.innerHTML = `<i class="fa-solid fa-circle-check mr-1"></i> 正解！大正解です！ 式：${vol} × ${decimalRatio} = ${correctAns} ml`;
+                revealAnswer();
             } else {
                 feedback.className = "mt-2 text-xs font-bold text-rose-600 bg-rose-50 p-2 rounded-xl border border-rose-200";
-                feedback.innerHTML = `<i class="fa-solid fa-circle-xmark mr-1"></i> 惜しい！ 正解は ${correctAns} ml です。`;
+                feedback.innerHTML = `<i class="fa-solid fa-circle-xmark mr-1"></i> 惜しい！もう一度計算してみよう（または「答えを見る」で確認できます）`;
             }
         }
 
@@ -508,15 +552,15 @@
                 ratioNum = (Math.floor(Math.random() * 19) + 1) * 5; // 5% ~ 95%
                 ratioStr = `${ratioNum}％`;
                 unit = 'percent';
-                decimalVal = ratioNum / 100;
+                decimalVal = exactDivideRatio(ratioNum, 'percent');
             } else {
                 ratioNum = (Math.floor(Math.random() * 9) + 1); // 1割 ~ 9割
                 ratioStr = `${ratioNum}割`;
                 unit = 'wari';
-                decimalVal = ratioNum / 10;
+                decimalVal = exactDivideRatio(ratioNum, 'wari');
             }
 
-            const ans = Math.round(vol * decimalVal);
+            const ans = exactMultiply(vol, decimalVal);
 
             return {
                 text: `${vol} ml の${flavor}があります。このジュースの果汁割合は「 ${ratioStr} 」です。含まれている果汁は何 ml でしょうか？`,
@@ -551,10 +595,10 @@
             const feedback = document.getElementById('drill-feedback');
             feedback.classList.remove('hidden');
 
-            const isStep1Correct = Math.abs(userDecimal - currentQuestion.decimalVal) < 0.001;
+            const isStep1Correct = Math.abs(userDecimal - currentQuestion.decimalVal) < 1e-9;
             const isVolCorrect = userVol === currentQuestion.vol;
-            const isMultCorrect = Math.abs(userMult - currentQuestion.decimalVal) < 0.001;
-            const isAnsCorrect = Math.abs(userAns - currentQuestion.ans) < 0.5;
+            const isMultCorrect = Math.abs(userMult - currentQuestion.decimalVal) < 1e-9;
+            const isAnsCorrect = Math.abs(userAns - currentQuestion.ans) < 1e-9;
 
             if (isStep1Correct && isVolCorrect && isMultCorrect && isAnsCorrect) {
                 score += 10;
